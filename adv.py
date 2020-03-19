@@ -38,23 +38,22 @@ traversal_path = []
 # set previous room (south) to the id of current room
 # set current room oposite direction (north) to id of previous room
 
-def getCurrentRoomInfo(id, visited):
+def getCurrentRoomInfo(room_id, visited):
     currRoom = player.current_room.id
-    if id == currRoom:
+    if room_id == currRoom:
         exits = player.current_room.get_exits()
-        room = visited[currRoom]
-        room['id'] = currRoom
-        room['exits'] = exits
+        visited[currRoom]["id"] = currRoom
+        visited[currRoom]["exits"] = exits
         hasBeenFullyExplored = True
         for e in exits:
             if e not in visited[currRoom]:
-                room[e] = '?'
-        for e in exits:
-            if visited[currRoom][e] == '?':
+                visited[currRoom][e] = '?'
+        for ex in exits:
+            if visited[currRoom][ex] == '?':
                 hasBeenFullyExplored = False
                 break
-        room['explored'] = hasBeenFullyExplored
-        return room
+        visited[currRoom]["explored"] = hasBeenFullyExplored
+        return visited[currRoom]
     else:
         raise ValueError(f"Player is in room #{currRoom} but you are trying to get room #{id}!")
 
@@ -75,11 +74,11 @@ def traverseMap():
         path = s.pop()
         v_room = path[-1]
         currRoom = getCurrentRoomInfo(v_room, visited)
-        vr_id = currRoom['id']
-        vr_exits = currRoom['exits']
+        vr_id = currRoom["id"]
+        vr_exits = currRoom["exits"]
         print('\nroomInfo', v_room, currRoom)
 
-        if not currRoom['explored']:
+        if not currRoom["explored"]:
             if not visited[vr_id]:
                 visited[vr_id] = dict()
                 for e in vr_exits:
@@ -119,29 +118,41 @@ def traverseMap():
             
             while queue.size() > 0:
                 qpath = queue.dequeue()
-                room, _dir = qpath[-1]
+                room, _ = qpath[-1]
+                # if this room has not been visited yet
                 if room not in bfsVisited:
-                    if not visited[room]['explored']:
+                    # if this room is not explored, stop bfs.
+                    print(f'visited? #{room} -> {visited[room]["explored"]}')
+                    if not visited[room]["explored"]:
                         break
-                    bfsVisited.add(room)
+                    
+                    # find this room's exits
                     roomExits = player.current_room.get_exits()
+                    # for each of the exits, track the path
                     for e in roomExits:
+                        # if the player can travel this way, travel this way
                         if player.travel(e):
-                            thisRoom = player.current_room.id
+                            # we're in a new room
+                            newRoom = player.current_room.id
                             new_path = list(qpath)
-                            new_path.append((thisRoom, e))
-                            bfsVisited.add(thisRoom)
+                            # add the new room to path as room id and direction travelled
+                            new_path.append((newRoom, e)) 
+                            # add new room to queue
                             queue.enqueue(new_path)
+                            # travel back to origin?
                             player.travel(oppositeDir[e])
-            
-            
-            qpath = [d for room, d in qpath if d is not None]
+
+                    # add this room as visited
+                    bfsVisited.add(room)
+
             bfsPath = [d for room, d in qpath if d is not None]
             print('bfsPath', bfsPath)
+
+            for d in bfsPath:
+                player.travel(d)
             traversal_path.extend(bfsPath)
             
             print(f'go back to room #{qpath[-1][0]}', player.current_room.id, qpath, traversal_path)
-            
 
             if not visited[player.current_room.id]['explored']:
                 new_path = list(path)
