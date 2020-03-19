@@ -61,8 +61,6 @@ def getCurrentRoomInfo(id, visited):
 def traverseMap():
     # 0: { 'n': '?', 's': '?', 'e': '?', 'w': '?' }
     visited = defaultdict(dict)
-    lastRoom = None
-    lastDirection = None
     oppositeDir = {
         'n': 's',
         's': 'n',
@@ -70,7 +68,6 @@ def traverseMap():
         'w': 'e',
     }
 
-    # dfs travel
     s = Stack()
     s.push([player.current_room.id])
 
@@ -88,40 +85,79 @@ def traverseMap():
                 for e in vr_exits:
                     visited[vr_id][e] = '?'
 
-            print('roomExits', vr_exits, 'visitedRoom', visited[vr_id])
+            print('visitedRoom', visited[vr_id])
             
-            unexploredExit = [d for d in visited[vr_id] if visited[vr_id][d] == '?']
-            print('unexploredExit', unexploredExit)
-            if len(unexploredExit) > 0:
+            unexploredExits = [d for d in visited[vr_id] if visited[vr_id][d] == '?']
+            print('unexploredExits', unexploredExits)
+            if len(unexploredExits) > 0:
                 # player travel in this direction
-                randomExit = random.choice(unexploredExit)
+                randomExit = random.choice(unexploredExits)
                 if player.travel(randomExit):
                     # set the new discovered room id on both rooms
                     playerRoom = player.current_room.id
                     visited[vr_id][randomExit] = playerRoom
                     visited[playerRoom][oppositeDir[randomExit]] = vr_id
                     traversal_path.append(randomExit)
+                    print(f'travelled -> {randomExit} ->', vr_id, '->', playerRoom)
                 else:
-                    # well poop
-                    print(f'cant travel poop -> {randomExit} -> room #{vr_id}')
+                    print(f'cant travel -> {randomExit} -> room #{vr_id}')
 
-            else:
-                # find shortest path to an unexplored room
-                print('poop')
             #print(f'exit -> {e} -> {visited[vr_id][e]} -> {room_graph[vr_id][1][e]} -> {visited[vr_id][e] == room_graph[vr_id][1][e]}')
-            
             new_path = list(path)
             new_path.append(player.current_room.id)
             s.push(new_path)
 
+        else:
+            # find shortest path to an unexplored room
+            # and continue depth first search again
+            # if cant find unexplored room, stop
+            print('\nfinding unexplored room...\n')
+            
+            bfsVisited = set()
+            queue = Queue()
+            queue.enqueue([(vr_id, None)])
+            
+            while queue.size() > 0:
+                qpath = queue.dequeue()
+                room, _dir = qpath[-1]
+                if room not in bfsVisited:
+                    if not visited[room]['explored']:
+                        break
+                    bfsVisited.add(room)
+                    roomExits = player.current_room.get_exits()
+                    for e in roomExits:
+                        if player.travel(e):
+                            thisRoom = player.current_room.id
+                            new_path = list(qpath)
+                            new_path.append((thisRoom, e))
+                            bfsVisited.add(thisRoom)
+                            queue.enqueue(new_path)
+                            player.travel(oppositeDir[e])
+            
+            
+            qpath = [d for room, d in qpath if d is not None]
+            bfsPath = [d for room, d in qpath if d is not None]
+            print('bfsPath', bfsPath)
+            traversal_path.extend(bfsPath)
+            
+            print(f'go back to room #{qpath[-1][0]}', player.current_room.id, qpath, traversal_path)
+            
 
+            if not visited[player.current_room.id]['explored']:
+                new_path = list(path)
+                new_path.append(player.current_room.id)
+                s.push(new_path)
+            else:
+                print('\nwhats goin on room', player.current_room.id)
+                print(visited[player.current_room.id])
     
 # TRAVERSAL TEST
+player.current_room = world.starting_room
+traverseMap()
+
 visited_rooms = set()
 player.current_room = world.starting_room
 visited_rooms.add(player.current_room)
-
-traverseMap()
 
 for move in traversal_path:
     player.travel(move)
