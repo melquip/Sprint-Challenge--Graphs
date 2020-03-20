@@ -80,14 +80,17 @@ def traverseMap():
             currRoom = getCurrentRoomInfo(v_room, dfs_visited)
             vr_id = currRoom["id"]
             vr_exits = currRoom["exits"]
-            print('\nroomInfo', v_room, currRoom)
+            # print('\nroomInfo', v_room, currRoom)
             if not currRoom["explored"]:
                 if not dfs_visited[vr_id]:
                     dfs_visited[vr_id] = dict()
                     for e in vr_exits:
                         dfs_visited[vr_id][e] = '?'
 
+                # print('visitedRoom', dfs_visited[vr_id])
+                
                 unexploredExits = [d for d in dfs_visited[vr_id] if dfs_visited[vr_id][d] == '?']
+                # print('unexploredExits', unexploredExits)
                 if len(unexploredExits) > 0:
                     # player travel in this direction
                     randomExit = random.choice(unexploredExits)
@@ -98,25 +101,33 @@ def traverseMap():
                         dfs_visited[playerRoom][oppositeDir[randomExit]] = vr_id
                         traversal_path.append(randomExit)
                         dft.push((playerRoom, randomExit))
+                        # print(f'travelled -> {randomExit} ->', vr_id, '->', playerRoom)
+                    # else:
+                        # print(f'cant travel -> {randomExit} -> room #{vr_id}')
 
                 new_path = list(dfs_path)
                 new_path.append(player.current_room.id)
                 dfs.push(new_path)
-                
         else:
+            print('Player went back to room:', player.current_room.id)
+            # print(dfs.size(), dft.size(), dft.stack)
             room, direction = dft.pop()
-            if direction is not None:
+            # print(room, direction)
+            if len(dfs_visited) < 500 and direction is not None:
                 goBack = oppositeDir[direction]
+                # print(f'go -> {goBack}')
                 if player.travel(goBack):
                     traversal_path.append(goBack)
                     playerRoom = player.current_room.id
                     currRoom = getCurrentRoomInfo(playerRoom, dfs_visited)
+                    # print('current room info:', currRoom)
                     if not currRoom["explored"]:
                         new_path = list(dfs_path)
                         new_path.append(playerRoom)
                         dfs.push(new_path)
+                        # print(f'added room #{playerRoom} to stack!\n')
             else:
-                print('poop?\n')
+                break
     
 # TRAVERSAL TEST
 player.current_room = world.starting_room
@@ -150,18 +161,6 @@ while True:
     else:
         print("I did not understand that command.")
 """
-
-
-"""
-Start by writing an algorithm that picks a random unexplored direction from the player's current room, travels and logs that direction, then loops. This should cause your player to walk a depth-first traversal. When you reach a dead-end (i.e. a room with no unexplored paths), walk back to the nearest room that does contain an unexplored path.
-
-You can find the path to the shortest unexplored room by using a breadth-first search for a room with a '?' for an exit. If you use the bfs code from the homework, you will need to make a few modifications.
-
-Instead of searching for a target vertex, you are searching for an exit with a '?' as the value. If an exit has been explored, you can put it in your BFS queue like normal.
-
-BFS will return the path as a list of room IDs. You will need to convert this to a list of n/s/e/w directions before you can add it to your traversal path.
-"""
-
 """
 #####
 #                                                                                                                                                           #
