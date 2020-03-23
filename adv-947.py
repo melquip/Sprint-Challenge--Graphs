@@ -29,7 +29,12 @@ player = Player(world.starting_room)
 # Fill this out with directions to walk
 # traversal_path = ['n', 'n']
 traversal_path = []
-
+opposite = {
+    'n': 's', 
+    'e': 'w', 
+    's': 'n', 
+    'w': 'e'
+}
 # player.current_room.id
 # player.current_room.get_exits()
 # player.travel(direction)
@@ -38,101 +43,72 @@ traversal_path = []
 # set previous room (south) to the id of current room
 # set current room oposite direction (north) to id of previous room
 
-def getCurrentRoomInfo(room_id, visited):
-    currRoom = player.current_room.id
-    if room_id == currRoom:
-        exits = player.current_room.get_exits()
-        visited[currRoom]["id"] = currRoom
-        visited[currRoom]["exits"] = exits
-        hasBeenFullyExplored = True
-        for e in exits:
-            if e not in visited[currRoom]:
-                visited[currRoom][e] = '?'
-        for ex in exits:
-            if visited[currRoom][ex] == '?':
-                hasBeenFullyExplored = False
-                break
-        visited[currRoom]["explored"] = hasBeenFullyExplored
-        return visited[currRoom]
-    else:
-        raise ValueError(f"Player is in room #{currRoom} but you are trying to get room #{room_id}!")
+def projected_path(starting_room, already_visited=set()):
+    visited = set()
+    # update visited
+    for room in already_visited: visited.add(room)
+    # hold path
+    path = []
+    def add_to_path(room, back=None):
+        # add room to visited
+        visited.add(room)
+        # get all room exits
+        exits = room.get_exits()
+        # for each exit
+        for direction in exits:
+            # if the room in that direction is not visited
+            if room.get_room_in_direction(direction) not in visited:
+                # add the direction to the path
+                path.append(direction)
+                # recursively add all the rooms in the same direction, while sending the way back
+                add_to_path(room.get_room_in_direction(direction), opposite[direction])
+        # if a way back exists, add it to the path
+        if back: path.append(back)
+    # start running at starting room
+    add_to_path(starting_room)
+    # return projected path
+    return path
 
-def traverseMap():
-    oppositeDir = {
-        'n': 's',
-        's': 'n',
-        'e': 'w',
-        'w': 'e',
-    }
-    # dfs
-    dfs = Stack()
-    dfs.push([0])
-    dfs_visited = defaultdict(dict)
-    dfs_path = None
-    # dft
-    dft = Stack()
-    dft.push((0, None))
+def create_path(starting_room, visited=set()):
+    # hold the path
+    path = []
+    def add_to_path(room, back=None):
+        # add room to visited
+        visited.add(room)
+        # get all room exits
+        exits = room.get_exits()
+        # hold all path projections
+        path_lengths = {}
+        # for each exit
+        for direction in exits:
+            # find projected path in that direction
+            path_lengths[direction] = len(projected_path(room.get_room_in_direction(direction), visited))
+        # hold the traverse order of the paths
+        traverse_order = []
+        # for each direction as projected path sorted by length of path
+        for direction, _ in sorted(path_lengths.items(), key = lambda x: x[1]): 
+            # add the direction to the traverse order
+            traverse_order.append(direction)
+        # for each direction in the traverse order
+        for direction in traverse_order:
+            # if the room in that direction was not visited
+            if room.get_room_in_direction(direction) not in visited:
+                # add direction to the path
+                path.append(direction)
+                # recursively add all the rooms in the same direction, while sending the way back
+                add_to_path(room.get_room_in_direction(direction), opposite[direction])
+        # if we've reached all rooms at least once, stop
+        if len(visited) == len(world.rooms): return
+        # else, go back and append to path
+        elif back: path.append(back)
+    # start running at starting room
+    add_to_path(starting_room)
+    # return path
+    return path
 
-    while dfs.size() > 0 or dft.size() > 0:
-        if dfs.size() > 0:
-            dfs_path = dfs.pop()
-            v_room = dfs_path[-1]
-            currRoom = getCurrentRoomInfo(v_room, dfs_visited)
-            vr_id = currRoom["id"]
-            vr_exits = currRoom["exits"]
-            # print('\nroomInfo', v_room, currRoom)
-            if not currRoom["explored"]:
-                if not dfs_visited[vr_id]:
-                    dfs_visited[vr_id] = dict()
-                    for e in vr_exits:
-                        dfs_visited[vr_id][e] = '?'
+traversal_path = create_path(world.starting_room)
 
-                # print('visitedRoom', dfs_visited[vr_id])
-                
-                unexploredExits = [d for d in dfs_visited[vr_id] if dfs_visited[vr_id][d] == '?']
-                # print('unexploredExits', unexploredExits)
-                if len(unexploredExits) > 0:
-                    # player travel in this direction
-                    randomExit = random.choice(unexploredExits)
-                    if player.travel(randomExit):
-                        # set the new discovered room id on both rooms
-                        playerRoom = player.current_room.id
-                        dfs_visited[vr_id][randomExit] = playerRoom
-                        dfs_visited[playerRoom][oppositeDir[randomExit]] = vr_id
-                        traversal_path.append(randomExit)
-                        dft.push((playerRoom, randomExit))
-                        # print(f'travelled -> {randomExit} ->', vr_id, '->', playerRoom)
-                    # else:
-                        # print(f'cant travel -> {randomExit} -> room #{vr_id}')
-
-                new_path = list(dfs_path)
-                new_path.append(player.current_room.id)
-                dfs.push(new_path)
-        else:
-            print('Player went back to room:', player.current_room.id)
-            # print(dfs.size(), dft.size(), dft.stack)
-            room, direction = dft.pop()
-            # print(room, direction)
-            if len(dfs_visited) < 500 and direction is not None:
-                goBack = oppositeDir[direction]
-                # print(f'go -> {goBack}')
-                if player.travel(goBack):
-                    traversal_path.append(goBack)
-                    playerRoom = player.current_room.id
-                    currRoom = getCurrentRoomInfo(playerRoom, dfs_visited)
-                    # print('current room info:', currRoom)
-                    if not currRoom["explored"]:
-                        new_path = list(dfs_path)
-                        new_path.append(playerRoom)
-                        dfs.push(new_path)
-                        # print(f'added room #{playerRoom} to stack!\n')
-            else:
-                break
-    
 # TRAVERSAL TEST
-player.current_room = world.starting_room
-traverseMap()
-
 visited_rooms = set()
 player.current_room = world.starting_room
 visited_rooms.add(player.current_room)
